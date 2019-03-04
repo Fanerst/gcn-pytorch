@@ -27,7 +27,7 @@ class GraphConvolution(nn.Module):
         """
 
         self.net = []
-        for l in range(net_depth-1):
+        for l in range(net_depth):
             self.net.extend([ConvLayer(D, A, 1), nn.Sigmoid()])
         self.net.pop()
         self.net.extend([nn.Softmax()])
