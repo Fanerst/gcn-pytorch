@@ -17,19 +17,19 @@ class ConvLayer(nn.Linear):
 
 class GraphConvolution(nn.Module):
     """ graph convolution network """
-    def __init__(self, N, C, H, D, net_depth, A):
+    def __init__(self, N, C, H, F, net_depth, A):
         super().__init__()
         """
         N is the number of nodes in the graph
         C is the number of classes
         H is the hidden dimension
-        D is the number of features
+        F is the number of features
         net_depth is the depth of the network
         A is the normalized laplacian matrix
         """
 
         self.net = []
-        hd = [C] + [H]*(net_depth-1) + [D]
+        hd = [F] + [H]*(net_depth-1) + [C]
         for l in range(net_depth):
             self.net.extend([ConvLayer(hd[l], hd[l+1], A, 1), nn.Sigmoid()])
         self.net.pop()
