@@ -7,7 +7,7 @@ from scipy.sparse.linalg.eigen.arpack import eigsh
 import sys
 import torch
 
-'''
+
 def parse_index_file(filename):
     """Parse index file."""
     index = []
@@ -15,15 +15,15 @@ def parse_index_file(filename):
         index.append(int(line.strip()))
     return index
 
-
+'''
 def sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
     mask[idx] = 1
     return np.array(mask, dtype=np.bool)
+'''
 
-
-def load_data(dataset_str):
+def load_data(dataset_str, device):
     """
     Loads input data from gcn/data directory
     ind.dataset_str.x => the feature vectors of the training instances as scipy.sparse.csr.csr_matrix object;
@@ -64,29 +64,22 @@ def load_data(dataset_str):
         ty_extended[test_idx_range-min(test_idx_range), :] = ty
         ty = ty_extended
 
+    num_classes = y.shape[1]
+
     features = sp.vstack((allx, tx)).tolil()
     features[test_idx_reorder, :] = features[test_idx_range, :]
+    features = torch.from_numpy(features.todense()).to(device)
     adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
+    adj = torch.from_numpy(adj.todense()).to_sparse().to(device)
 
-    labels = np.vstack((ally, ty))
-    labels[test_idx_reorder, :] = labels[test_idx_range, :]
+    labels = torch.tensor(np.vstack((ally, ty)).argmax(axis=1)).to(device)
+    labels[test_idx_reorder] = labels[test_idx_range]
 
-    idx_test = test_idx_range.tolist()
-    idx_train = range(len(y))
-    idx_val = range(len(y), len(y)+500)
+    idx_test = torch.from_numpy(test_idx_range).to(device)
+    idx_train = torch.arange(len(y)).to(device)
+    idx_val = torch.arange(len(y), len(y)+500).to(device)
 
-    train_mask = sample_mask(idx_train, labels.shape[0])
-    val_mask = sample_mask(idx_val, labels.shape[0])
-    test_mask = sample_mask(idx_test, labels.shape[0])
-
-    y_train = np.zeros(labels.shape)
-    y_val = np.zeros(labels.shape)
-    y_test = np.zeros(labels.shape)
-    y_train[train_mask, :] = labels[train_mask, :]
-    y_val[val_mask, :] = labels[val_mask, :]
-    y_test[test_mask, :] = labels[test_mask, :]
-
-    return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+    return features, adj, labels, num_classes, idx_train, idx_val, idx_test
 '''
 
 def to_sparse_tensor(x):
@@ -95,8 +88,8 @@ def to_sparse_tensor(x):
     v = torch.tensor(x.data, dtype=torch.float)
     return torch.sparse_coo_tensor(i, v, torch.Size(x.shape))
 
-def read_file(name):
-    filename = f'data/ind.cora.{name}'
+def read_file(dataset, name):
+    filename = 'data/ind.' + dataset + '.{}'.format(name)
     if name == 'test.index':
         return np.loadtxt(filename, dtype=np.long)
     else:
@@ -106,9 +99,9 @@ def read_file(name):
 def normalize(x):
     return scipy.sparse.diags(np.array(x.sum(1)).flatten() ** -1).dot(x)
 
-def load_data(device):
+def load_data(dataset, device):
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index']
-    x, y, tx, ty, allx, ally, graph, test_index = [read_file(name) for name in names]
+    x, y, tx, ty, allx, ally, graph, test_index = [read_file(dataset, name) for name in names]
     num_classes = y.shape[1]
     train_index = torch.arange(y.shape[0]).to(device)
     dev_index = torch.arange(y.shape[0], y.shape[0] + 500).to(device)
@@ -125,4 +118,4 @@ def load_data(device):
     a = to_sparse_tensor(normalize(adj + scipy.sparse.eye(adj.shape[0]))).to(device)
 
     return x, a, y, num_classes, train_index, dev_index, test_index
-
+'''
