@@ -4,39 +4,25 @@ from layer import GraphConvolution
 import torch.optim as optim
 import torch.nn.functional as f
 
-device = 0
-F, A, y, C, train_mask, val_mask, test_mask = load_data(device)
-'''
-ADJ = torch.from_numpy(adj.todense()).float()
-ADJ += torch.eye(ADJ.shape[0], dtype=torch.float32)
-degree_matrix = torch.diag(torch.sum(ADJ, dim=0))
-D = degree_matrix.sqrt().inverse()
-A = torch.mm(torch.mm(D,ADJ), D)
+device = 'cuda:0'
+dataset = 'cora'
+F, A, y, C, train_mask, val_mask, test_mask = load_data(dataset, device)
+A = A.float()
 
-Features = torch.from_numpy(features.todense()).float()
-'''
 N = A.shape[0]
 H = 16
 D = F.shape[1]
 
-model = GraphConvolution(N, C, H, D, 2, A).to(torch.device(device))
+model = GraphConvolution(N, C, H, D, 2, A).to(device)
 opt = optim.Adam(model.parameters(), lr=0.01)
 
-'''
-result = torch.from_numpy(y_train[train_mask]).float()
-result_val = torch.from_numpy(y_val[val_mask]).float()
-result_test = torch.from_numpy(y_test[test_mask]).float()
-train_mask = torch.from_numpy(train_mask.astype(int)).nonzero().view(-1)
-val_mask = torch.from_numpy(val_mask.astype(int)).nonzero().view(-1)
-test_mask = torch.from_numpy(test_mask.astype(int)).nonzero().view(-1)
-'''
 loss_window = [0, 0]
 loss_inc = 0
 
 for epoch in range(200):
     model.train()
     output = model(F)
-    loss = f.nll_loss(torch.log(output[train_mask]), y[train_mask])
+    loss = f.nll_loss(torch.log(output[train_mask]+1e-10), y[train_mask])
 
     opt.zero_grad()
     loss.backward()
