@@ -1,11 +1,13 @@
 import numpy as np
 import pickle as pkl
 import networkx as nx
+import scipy
 import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 import sys
+import torch
 
-
+'''
 def parse_index_file(filename):
     """Parse index file."""
     index = []
@@ -85,5 +87,42 @@ def load_data(dataset_str):
     y_test[test_mask, :] = labels[test_mask, :]
 
     return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+'''
 
+def to_sparse_tensor(x):
+    x = x.tocoo()
+    i = torch.tensor(np.vstack((x.row, x.col)), dtype=torch.long)
+    v = torch.tensor(x.data, dtype=torch.float)
+    return torch.sparse_coo_tensor(i, v, torch.Size(x.shape))
+
+def read_file(name):
+    filename = f'data/ind.cora.{name}'
+    if name == 'test.index':
+        return np.loadtxt(filename, dtype=np.long)
+    else:
+        with open(filename, 'rb') as f:
+            return pkl.load(f, encoding='latin1')
+
+def normalize(x):
+    return scipy.sparse.diags(np.array(x.sum(1)).flatten() ** -1).dot(x)
+
+def load_data(device):
+    names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index']
+    x, y, tx, ty, allx, ally, graph, test_index = [read_file(name) for name in names]
+    num_classes = y.shape[1]
+    train_index = torch.arange(y.shape[0]).to(device)
+    dev_index = torch.arange(y.shape[0], y.shape[0] + 500).to(device)
+    test_index_sorted = torch.tensor(np.sort(test_index)).to(device)
+    test_index = torch.tensor(test_index).to(device)
+
+    x = torch.tensor(normalize(scipy.sparse.vstack([allx, tx])).todense()).to(device)
+    y = torch.tensor(np.vstack([ally, ty]).argmax(axis=1)).to(device)
+
+    x[test_index] = x[test_index_sorted]
+    y[test_index] = y[test_index_sorted]
+
+    adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
+    a = to_sparse_tensor(normalize(adj + scipy.sparse.eye(adj.shape[0]))).to(device)
+
+    return x, a, y, num_classes, train_index, dev_index, test_index
 
