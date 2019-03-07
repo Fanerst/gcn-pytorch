@@ -11,7 +11,7 @@ class ConvLayer(nn.Linear):
         self.A = A
 
     def forward(self, input):
-        temp = torch.sparse.mm(self.A.to_sparse(), input)
+        temp = torch.sparse.mm(self.A, input)
         output = nn.functional.linear(temp, self.weight, self.bias)
         return output
 
@@ -31,7 +31,7 @@ class GraphConvolution(nn.Module):
         self.net = []
         hd = [F] + [H]*(net_depth-1) + [C]
         for l in range(net_depth):
-            self.net.extend([ConvLayer(hd[l], hd[l+1], A, 1), nn.Sigmoid()])
+            self.net.extend([ConvLayer(hd[l], hd[l+1], A, 1), nn.ReLU()])
         self.net.pop()
         self.net.extend([nn.Softmax(dim=1)])
         self.net = nn.Sequential(*self.net)
